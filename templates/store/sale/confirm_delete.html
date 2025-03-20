@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Cancelar Venda - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Cancelar Venda</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'sale_detail' sale.id %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <p class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Tem certeza que deseja cancelar a venda <strong>{{ sale.code }}</strong>?
+                </p>
+                <p>Esta ação não poderá ser desfeita.</p>
+                
+                <div class="mb-3">
+                    <strong>Data:</strong> {{ sale.date|date:"d/m/Y H:i" }}<br>
+                    <strong>Cliente:</strong> {{ sale.client.name|default:"Consumidor Final" }}<br>
+                    <strong>Valor Total:</strong> R$ {{ sale.total_amount|floatformat:2 }}<br>
+                    <strong>Forma de Pagamento:</strong> {{ sale.get_payment_method_display }}<br>
+                    <strong>Status:</strong> {{ sale.get_status_display }}
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Ao cancelar esta venda, os produtos serão devolvidos ao estoque.
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Confirmar Cancelamento</button>
+                    <a href="{% url 'sale_detail' sale.id %}" class="btn btn-secondary">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

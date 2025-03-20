@@ -1,0 +1,290 @@
+{% extends 'base.html' %}
+
+{% block title %}Relatório de Vendas - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Relatório de Vendas</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Filtros</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="start_date" class="form-label">Data Inicial</label>
+                <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label for="end_date" class="form-label">Data Final</label>
+                <input type="date" id="end_date" name="end_date" value="{{ end_date }}" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label for="status" class="form-label">Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="pago" {% if status == 'pago' %}selected{% endif %}>Pago</option>
+                    <option value="pendente" {% if status == 'pendente' %}selected{% endif %}>Pendente</option>
+                    <option value="cancelado" {% if status == 'cancelado' %}selected{% endif %}>Cancelado</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <div>
+                    <button type="submit" class="btn btn-primary">Filtrar</button>
+                    <a href="{% url 'report_sales' %}" class="btn btn-secondary">Limpar</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-xl-6 col-md-6 mb-4">
+        <div class="card card-dashboard h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Total de Vendas</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_count }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-shopping-cart fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-6 col-md-6 mb-4">
+        <div class="card card-dashboard success h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Valor Total</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">R$ {{ total_amount|floatformat:2 }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Sales by Day Chart -->
+    <div class="col-lg-8 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Vendas por Dia</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-area">
+                    <canvas id="salesByDayChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sales by Payment Method -->
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Vendas por Forma de Pagamento</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-pie">
+                    <canvas id="salesByPaymentChart"></canvas>
+                </div>
+                <div class="mt-4">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Forma de Pagamento</th>
+                                    <th>Quantidade</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in sales_by_payment %}
+                                <tr>
+                                    <td>{{ item.payment_method|title }}</td>
+                                    <td>{{ item.count }}</td>
+                                    <td>R$ {{ item.total|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center">Nenhuma venda no período.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Lista de Vendas</h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Data</th>
+                        <th>Cliente</th>
+                        <th>Valor</th>
+                        <th>Forma de Pagamento</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sale in sales %}
+                    <tr>
+                        <td>{{ sale.code }}</td>
+                        <td>{{ sale.date|date:"d/m/Y H:i" }}</td>
+                        <td>{{ sale.client.name|default:"Consumidor Final" }}</td>
+                        <td>R$ {{ sale.total_amount|floatformat:2 }}</td>
+                        <td>{{ sale.get_payment_method_display }}</td>
+                        <td>
+                            {% if sale.status == 'pago' %}
+                            <span class="badge bg-success">Pago</span>
+                            {% elif sale.status == 'pendente' %}
+                            <span class="badge bg-warning">Pendente</span>
+                            {% else %}
+                            <span class="badge bg-danger">Cancelado</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'sale_detail' sale.id %}" class="btn btn-sm btn-info">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center">Nenhuma venda encontrada.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Sales by Day Chart
+    var salesByDayCtx = document.getElementById('salesByDayChart').getContext('2d');
+    var salesByDayData = {
+        labels: [{% for item in sales_by_day %}'{{ item.day|date:"d/m" }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Valor Total (R$)',
+            data: [{% for item in sales_by_day %}{{ item.total|floatformat:2 }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+            backgroundColor: 'rgba(78, 115, 223, 0.05)',
+            borderColor: 'rgba(78, 115, 223, 1)',
+            pointBackgroundColor: 'rgba(78, 115, 223, 1)',
+            pointBorderColor: '#fff',
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: 'rgba(78, 115, 223, 1)',
+            borderWidth: 2,
+            tension: 0.3
+        }, {
+            label: 'Quantidade',
+            data: [{% for item in sales_by_day %}{{ item.count }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+            backgroundColor: 'rgba(28, 200, 138, 0.05)',
+            borderColor: 'rgba(28, 200, 138, 1)',
+            pointBackgroundColor: 'rgba(28, 200, 138, 1)',
+            pointBorderColor: '#fff',
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: 'rgba(28, 200, 138, 1)',
+            borderWidth: 2,
+            tension: 0.3,
+            yAxisID: 'y1'
+        }]
+    };
+    
+    var salesByDayChart = new Chart(salesByDayCtx, {
+        type: 'line',
+        data: salesByDayData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    position: 'left',
+                    ticks: {
+                        callback: function(value) {
+                            return 'R$ ' + value;
+                        }
+                    }
+                },
+                y1: {
+                    beginAtZero: true,
+                    position: 'right',
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            }
+        }
+    });
+    
+    // Sales by Payment Method Chart
+    var salesByPaymentCtx = document.getElementById('salesByPaymentChart').getContext('2d');
+    var salesByPaymentData = {
+        labels: [{% for item in sales_by_payment %}'{{ item.payment_method|title }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+        datasets: [{
+            data: [{% for item in sales_by_payment %}{{ item.total|floatformat:2 }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+            backgroundColor: [
+                'rgba(78, 115, 223, 0.8)',
+                'rgba(28, 200, 138, 0.8)',
+                'rgba(246, 194, 62, 0.8)',
+                'rgba(231, 74, 59, 0.8)',
+                'rgba(54, 185, 204, 0.8)'
+            ],
+            borderWidth: 1
+        }]
+    };
+    
+    var salesByPaymentChart = new Chart(salesByPaymentCtx, {
+        type: 'doughnut',
+        data: salesByPaymentData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            var label = context.label || '';
+                            var value = context.raw || 0;
+                            return label + ': R$ ' + value.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

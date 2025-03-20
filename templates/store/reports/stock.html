@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+{% load store_extras %}
+
+{% block title %}Relatório de Estoque - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Relatório de Estoque</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Filtros</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="stock_status" class="form-label">Status de Estoque</label>
+                <select id="stock_status" name="stock_status" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="low_stock" {% if stock_status == 'low_stock' %}selected{% endif %}>Estoque Baixo</option>
+                    <option value="out_of_stock" {% if stock_status == 'out_of_stock' %}selected{% endif %}>Sem Estoque</option>
+                    <option value="in_stock" {% if stock_status == 'in_stock' %}selected{% endif %}>Estoque Normal</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="category" class="form-label">Categoria</label>
+                <select id="category" name="category" class="form-select">
+                    <option value="">Todas</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"i" %}selected{% endif %}>{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">&nbsp;</label>
+                <div>
+                    <button type="submit" class="btn btn-primary">Filtrar</button>
+                    <a href="{% url 'report_stock' %}" class="btn btn-secondary">Limpar</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="card card-dashboard h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Total de Produtos</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_products }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-box fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="card card-dashboard success h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Valor Total em Estoque</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">R$ {{ total_stock_value|floatformat:2 }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="card card-dashboard warning h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                            Produtos com Estoque Baixo</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ low_stock_count }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Lista de Produtos</h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nome</th>
+                        <th>Categoria</th>
+                        <th>Estoque Atual</th>
+                        <th>Estoque Mínimo</th>
+                        <th>Preço de Custo</th>
+                        <th>Valor em Estoque</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>{{ product.code }}</td>
+                        <td>{{ product.name }}</td>
+                        <td>{{ product.category.name|default:"-" }}</td>
+                        <td>{{ product.stock_quantity }}</td>
+                        <td>{{ product.min_stock }}</td>
+                        <td>R$ {{ product.cost_price|floatformat:2 }}</td>
+                        <td>R$ {{ product.stock_quantity|multiply:product.cost_price|floatformat:2 }}</td>
+                        <td>
+                            {% if product.stock_quantity <= 0 %}
+                            <span class="badge bg-danger">Sem Estoque</span>
+                            {% elif product.is_low_stock %}
+                            <span class="badge bg-warning">Estoque Baixo</span>
+                            {% else %}
+                            <span class="badge bg-success">Normal</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'product_detail' product.id %}" class="btn btn-sm btn-info">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'stock_movement_create' %}?product={{ product.id }}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-plus"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center">Nenhum produto encontrado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Stock Status Chart -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Status de Estoque</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-pie">
+                    <canvas id="stockStatusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock by Category Chart -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Estoque por Categoria</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-pie">
+                    <canvas id="stockByCategoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Calculate stock status counts
+    var normalStock = 0;
+    var lowStock = 0;
+    var outOfStock = 0;
+    
+    {% for product in products %}
+        {% if product.stock_quantity <= 0 %}
+            outOfStock++;
+        {% elif product.is_low_stock %}
+            lowStock++;
+        {% else %}
+            normalStock++;
+        {% endif %}
+    {% endfor %}
+    
+    // Stock Status Chart
+    var statusCtx = document.getElementById('stockStatusChart').getContext('2d');
+    var statusData = {
+        labels: ['Estoque Normal', 'Estoque Baixo', 'Sem Estoque'],
+        datasets: [{
+            data: [normalStock, lowStock, outOfStock],
+            backgroundColor: [
+                'rgba(28, 200, 138, 0.8)',
+                'rgba(246, 194, 62, 0.8)',
+                'rgba(231, 74, 59, 0.8)'
+            ],
+            borderWidth: 1
+        }]
+    };
+    
+    var statusChart = new Chart(statusCtx, {
+        type: 'doughnut',
+        data: statusData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+    
+    // Calculate stock by category
+    var categories = {};
+    
+    {% for product in products %}
+        var category = '{{ product.category.name|default:"Sem Categoria" }}';
+        if (!categories[category]) {
+            categories[category] = 0;
+        }
+        categories[category] += {{ product.stock_quantity }};
+    {% endfor %}
+    
+    var categoryLabels = Object.keys(categories);
+    var categoryData = Object.values(categories);
+    
+    // Stock by Category Chart
+    var categoryCtx = document.getElementById('stockByCategoryChart').getContext('2d');
+    var categoryData = {
+        labels: categoryLabels,
+        datasets: [{
+            data: categoryData,
+            backgroundColor: [
+                'rgba(78, 115, 223, 0.8)',
+                'rgba(28, 200, 138, 0.8)',
+                'rgba(246, 194, 62, 0.8)',
+                'rgba(231, 74, 59, 0.8)',
+                'rgba(54, 185, 204, 0.8)',
+                'rgba(133, 135, 150, 0.8)'
+            ],
+            borderWidth: 1
+        }]
+    };
+    
+    var categoryChart = new Chart(categoryCtx, {
+        type: 'pie',
+        data: categoryData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+</script>
+{% endblock %}

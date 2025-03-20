@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}Excluir Categoria - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Excluir Categoria</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'category_list' %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <p class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Tem certeza que deseja excluir a categoria <strong>{{ category.name }}</strong>?
+                </p>
+                <p>Esta ação não poderá ser desfeita.</p>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Confirmar Exclusão</button>
+                    <a href="{% url 'category_list' %}" class="btn btn-secondary">Cancelar</a>
+                </form>
+            </div>
+        </div>

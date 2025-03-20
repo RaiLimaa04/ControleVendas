@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+
+{% block title %}Finalizar Venda - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Finalizar Venda</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'sale_item_create' sale.id %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <h5 class="mb-3">Resumo da Venda</h5>
+                
+                <div class="mb-3">
+                    <strong>Código:</strong> {{ sale.code }}<br>
+                    <strong>Data:</strong> {{ sale.date|date:"d/m/Y H:i" }}<br>
+                    <strong>Cliente:</strong> {{ sale.client.name|default:"Consumidor Final" }}<br>
+                    <strong>Forma de Pagamento:</strong> {{ sale.get_payment_method_display }}<br>
+                    <strong>Status:</strong> {{ sale.get_status_display }}
+                </div>
+                
+                <h5 class="mb-3">Itens</h5>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Quantidade</th>
+                                <th>Preço Unitário</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in sale.items.all %}
+                            <tr>
+                                <td>{{ item.product.name }}</td>
+                                <td>{{ item.quantity }}</td>
+                                <td>R$ {{ item.unit_price|floatformat:2 }}</td>
+                                <td>R$ {{ item.total_price|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">Nenhum item adicionado.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-active">
+                                <th colspan="3" class="text-end">Total:</th>
+                                <th>R$ {{ sale.total_amount|floatformat:2 }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                
+                {% if not sale.items.exists %}
+                <div class="alert alert-danger mt-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Não é possível finalizar uma venda sem itens!
+                </div>
+                {% else %}
+                <form method="post" class="mt-4">
+                    {% csrf_token %}
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-check me-2"></i> Finalizar Venda
+                        </button>
+                        <a href="{% url 'sale_item_create' sale.id %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i> Voltar
+                        </a>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Informações Adicionais</h6>
+            </div>
+            <div class="card-body">
+                {% if sale.payment_method == 'prazo' %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Esta venda será registrada como <strong>pendente</strong> por ser a prazo.
+                </div>
+                
+                {% if sale.client %}
+                <div class="mb-3">
+                    <h6>Informações do Cliente</h6>
+                    <p><strong>Nome:</strong> {{ sale.client.name }}</p>
+                    <p><strong>Dívida Atual:</strong> R$ {{ sale.client.total_debt|floatformat:2 }}</p>
+                    <p><strong>Limite de Crédito:</strong> R$ {{ sale.client.credit_limit|floatformat:2 }}</p>
+                    
+                    {% if sale.client.total_debt > sale.client.credit_limit and sale.client.credit_limit > 0 %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Este cliente está acima do limite de crédito!
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Venda a prazo sem cliente associado. Recomenda-se associar um cliente.
+                </div>
+                {% endif %}
+                
+                {% else %}
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Esta venda será registrada como <strong>paga</strong>.
+                </div>
+                {% endif %}
+                
+                <div class="mt-4">
+                    <h6>Próximos Passos</h6>
+                    <ul>
+                        <li>Após finalizar a venda, você poderá imprimir o comprovante.</li>
+                        <li>O estoque dos produtos já foi atualizado.</li>
+                        {% if sale.payment_method == 'prazo' %}
+                        <li>Você poderá registrar pagamentos futuros para esta venda.</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

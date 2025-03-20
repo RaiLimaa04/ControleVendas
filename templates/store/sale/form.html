@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }} - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ title }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'sale_list' %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <form method="post" id="saleForm">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            {{ form.code|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.client|as_crispy_field }}
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            {{ form.payment_method|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_status" class="form-label">Status</label>
+                                <select name="status" id="id_status" class="form-select" required>
+                                    <option value="pago">Pago</option>
+                                    <option value="pendente">Pendente</option>
+                                    <option value="cancelado">Cancelado</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            {{ form.notes|as_crispy_field }}
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">Salvar</button>
+                        <a href="{% url 'sale_list' %}" class="btn btn-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Informações do Cliente</h6>
+            </div>
+            <div class="card-body" id="client-info">
+                <p class="text-center text-muted">Selecione um cliente para ver suas informações.</p>
+            </div>
+        </div>
+        
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Dicas</h6>
+            </div>
+            <div class="card-body">
+                <ul>
+                    <li>Para vendas a prazo, selecione a forma de pagamento "A Prazo".</li>
+                    <li>O status será automaticamente definido como "Pendente" para vendas a prazo.</li>
+                    <li>Após criar a venda, você poderá adicionar os produtos.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // When client changes, update client info
+        $('#id_client').change(function() {
+            var clientId = $(this).val();
+            if (clientId) {
+                $.ajax({
+                    url: '/api/clients/' + clientId + '/info/',
+                    type: 'GET',
+                    success: function(data) {
+                        var html = '<div class="text-center mb-3">';
+                        html += '<i class="fas fa-user-circle fa-3x text-primary"></i>';
+                        html += '<h5 class="mt-2">' + data.name + '</h5>';
+                        html += '</div>';
+                        html += '<p><strong>Telefone:</strong> ' + data.phone + '</p>';
+                        html += '<p><strong>Dívida Atual:</strong> R$ ' + data.total_debt.toFixed(2) + '</p>';
+                        html += '<p><strong>Limite de Crédito:</strong> R$ ' + data.credit_limit.toFixed(2) + '</p>';
+                        
+                        if (data.total_debt > 0) {
+                            html += '<div class="alert alert-warning">';
+                            html += '<i class="fas fa-exclamation-circle me-2"></i>';
+                            html += 'Este cliente possui dívidas pendentes.';
+                            html += '</div>';
+                        }
+                        
+                        if (data.total_debt > data.credit_limit && data.credit_limit > 0) {
+                            html += '<div class="alert alert-danger">';
+                            html += '<i class="fas fa-exclamation-triangle me-2"></i>';
+                            html += 'Este cliente está acima do limite de crédito!';
+                            html += '</div>';
+                        }
+                        
+                        $('#client-info').html(html);
+                    },
+                    error: function() {
+                        $('#client-info').html('<p class="text-center text-danger">Erro ao carregar informações do cliente.</p>');
+                    }
+                });
+            } else {
+                $('#client-info').html('<p class="text-center text-muted">Selecione um cliente para ver suas informações.</p>');
+            }
+        });
+        
+        // When payment method changes, update status field
+        $('#id_payment_method').change(function() {
+            var paymentMethod = $(this).val();
+            var $statusField = $('#id_status');
+            
+            if (paymentMethod === 'prazo') {
+                $statusField.val('pendente');
+                $statusField.find('option').not('[value="pendente"]').prop('disabled', true);
+            } else {
+                $statusField.find('option').prop('disabled', false);
+                if ($statusField.val() === 'pendente') {
+                    $statusField.val('pago');
+                }
+            }
+        });
+        
+        // Form validation
+        $('#saleForm').submit(function(e) {
+            var paymentMethod = $('#id_payment_method').val();
+            var clientId = $('#id_client').val();
+            
+            if (paymentMethod === 'prazo' && !clientId) {
+                e.preventDefault();
+                alert('Para vendas a prazo, é necessário selecionar um cliente.');
+                return false;
+            }
+            
+            return true;
+        });
+        
+        // Trigger change event if client is already selected (edit mode)
+        if ($('#id_client').val()) {
+            $('#id_client').trigger('change');
+        }
+        
+        // Trigger change event if payment method is already selected (edit mode)
+        if ($('#id_payment_method').val() === 'prazo') {
+            $('#id_payment_method').trigger('change');
+        }
+    });
+</script>
+{% endblock %}

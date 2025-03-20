@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Remover Item - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Remover Item</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'sale_item_create' item.sale.id %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <p class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Tem certeza que deseja remover este item da venda?
+                </p>
+                <p>Esta ação não poderá ser desfeita.</p>
+                
+                <div class="mb-3">
+                    <strong>Produto:</strong> {{ item.product.name }}<br>
+                    <strong>Quantidade:</strong> {{ item.quantity }}<br>
+                    <strong>Preço Unitário:</strong> R$ {{ item.unit_price|floatformat:2 }}<br>
+                    <strong>Total:</strong> R$ {{ item.total_price|floatformat:2 }}
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Ao remover este item, a quantidade será devolvida ao estoque.
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Confirmar Remoção</button>
+                    <a href="{% url 'sale_item_create' item.sale.id %}" class="btn btn-secondary">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

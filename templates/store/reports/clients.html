@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+
+{% block title %}Relatório de Clientes - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Relatório de Clientes</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Filtros</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="debt_status" class="form-label">Status de Dívida</label>
+                <select id="debt_status" name="debt_status" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="with_debt" {% if debt_status == 'with_debt' %}selected{% endif %}>Com Dívida</option>
+                    <option value="no_debt" {% if debt_status == 'no_debt' %}selected{% endif %}>Sem Dívida</option>
+                </select>
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">&nbsp;</label>
+                <div>
+                    <button type="submit" class="btn btn-primary">Filtrar</button>
+                    <a href="{% url 'report_clients' %}" class="btn btn-secondary">Limpar</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Clients Table -->
+    <div class="col-lg-12 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Lista de Clientes</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nome</th>
+                                <th>Telefone</th>
+                                <th>Total de Compras</th>
+                                <th>Total Gasto</th>
+                                <th>Dívida Atual</th>
+                                <th>Limite de Crédito</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for client in clients %}
+                            <tr>
+                                <td>{{ client.code }}</td>
+                                <td>{{ client.name }}</td>
+                                <td>{{ client.phone }}</td>
+                                <td>{{ client.total_purchases }}</td>
+                                <td>R$ {{ client.total_spent|default:0|floatformat:2 }}</td>
+                                <td>R$ {{ client.debt|default:0|floatformat:2 }}</td>
+                                <td>R$ {{ client.credit_limit|floatformat:2 }}</td>
+                                <td>
+                                    {% if client.debt > client.credit_limit and client.credit_limit > 0 %}
+                                    <span class="badge bg-danger">Acima do Limite</span>
+                                    {% elif client.debt > 0 %}
+                                    <span class="badge bg-warning">Com Dívida</span>
+                                    {% else %}
+                                    <span class="badge bg-success">Em Dia</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'client_detail' client.id %}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center">Nenhum cliente encontrado.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Debt Distribution Chart -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Distribuição de Dívidas</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-pie">
+                    <canvas id="debtDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client Status Chart -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Status dos Clientes</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-pie">
+                    <canvas id="clientStatusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Calculate client statistics
+    var totalClients = {{ clients|length }};
+    var clientsWithDebt = 0;
+    var clientsOverLimit = 0;
+    var clientsInGoodStanding = 0;
+    
+    {% for client in clients %}
+        {% if client.debt > client.credit_limit and client.credit_limit > 0 %}
+            clientsOverLimit++;
+        {% elif client.debt > 0 %}
+            clientsWithDebt++;
+        {% else %}
+            clientsInGoodStanding++;
+        {% endif %}
+    {% endfor %}
+    
+    // Debt Distribution Chart
+    var debtCtx = document.getElementById('debtDistributionChart').getContext('2d');
+    var debtData = {
+        labels: ['Sem Dívida', 'Com Dívida', 'Acima do Limite'],
+        datasets: [{
+            data: [clientsInGoodStanding, clientsWithDebt, clientsOverLimit],
+            backgroundColor: [
+                'rgba(28, 200, 138, 0.8)',
+                'rgba(246, 194, 62, 0.8)',
+                'rgba(231, 74, 59, 0.8)'
+            ],
+            borderWidth: 1
+        }]
+    };
+    
+    var debtChart = new Chart(debtCtx, {
+        type: 'doughnut',
+        data: debtData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            var label = context.label || '';
+                            var value = context.raw || 0;
+                            var percentage = (value / totalClients * 100).toFixed(1);
+                            return label + ': ' + value + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // Client Status Chart
+    var statusCtx = document.getElementById('clientStatusChart').getContext('2d');
+    var statusData = {
+        labels: ['Ativos', 'Inativos'],
+        datasets: [{
+            data: [
+                {{ clients|length }},
+                0  // You might want to add logic to track inactive clients
+            ],
+            backgroundColor: [
+                'rgba(78, 115, 223, 0.8)',
+                'rgba(133, 135, 150, 0.8)'
+            ],
+            borderWidth: 1
+        }]
+    };
+    
+    var statusChart = new Chart(statusCtx, {
+        type: 'pie',
+        data: statusData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
+    });
+</script>
+{% endblock %}

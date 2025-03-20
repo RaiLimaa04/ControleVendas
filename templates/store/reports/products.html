@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+
+{% block title %}Relatório de Produtos - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Relatório de Produtos</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Filtros</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="start_date" class="form-label">Data Inicial</label>
+                <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label for="end_date" class="form-label">Data Final</label>
+                <input type="date" id="end_date" name="end_date" value="{{ end_date }}" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label for="category" class="form-label">Categoria</label>
+                <select id="category" name="category" class="form-select">
+                    <option value="">Todas</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"i" %}selected{% endif %}>{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <div>
+                    <button type="submit" class="btn btn-primary">Filtrar</button>
+                    <a href="{% url 'report_products' %}" class="btn btn-secondary">Limpar</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Produtos Mais Vendidos</h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Produto</th>
+                        <th>Categoria</th>
+                        <th>Quantidade Vendida</th>
+                        <th>Valor Total</th>
+                        <th>Lucro Estimado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in top_products %}
+                    <tr>
+                        <td>{{ product.product__code }}</td>
+                        <td>{{ product.product__name }}</td>
+                        <td>{{ product.product__category__name|default:"-" }}</td>
+                        <td>{{ product.total_quantity }}</td>
+                        <td>R$ {{ product.total_sales|floatformat:2 }}</td>
+                        <td>R$ {{ product.profit|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">Nenhum produto vendido no período.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Top Products by Quantity Chart -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Top 10 Produtos por Quantidade</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-bar">
+                    <canvas id="topProductsQuantityChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Products by Value Chart -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Top 10 Produtos por Valor</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-bar">
+                    <canvas id="topProductsValueChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Get top 10 products for charts
+    var topProducts = [
+        {% for product in top_products|slice:":10" %}
+        {
+            name: '{{ product.product__name }}',
+            quantity: {{ product.total_quantity }},
+            sales: {{ product.total_sales|floatformat:2 }}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    // Top Products by Quantity Chart
+    var quantityCtx = document.getElementById('topProductsQuantityChart').getContext('2d');
+    var quantityData = {
+        labels: topProducts.map(p => p.name),
+        datasets: [{
+            label: 'Quantidade Vendida',
+            data: topProducts.map(p => p.quantity),
+            backgroundColor: 'rgba(78, 115, 223, 0.8)',
+            borderColor: 'rgba(78, 115, 223, 1)',
+            borderWidth: 1
+        }]
+    };
+    
+    var quantityChart = new Chart(quantityCtx, {
+        type: 'bar',
+        data: quantityData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                },
+                x: {
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
+            }
+        }
+    });
+    
+    // Top Products by Value Chart
+    var valueCtx = document.getElementById('topProductsValueChart').getContext('2d');
+    var valueData = {
+        labels: topProducts.map(p => p.name),
+        datasets: [{
+            label: 'Valor Total (R$)',
+            data: topProducts.map(p => p.sales),
+            backgroundColor: 'rgba(28, 200, 138, 0.8)',
+            borderColor: 'rgba(28, 200, 138, 1)',
+            borderWidth: 1
+        }]
+    };
+    
+    var valueChart = new Chart(valueCtx, {
+        type: 'bar',
+        data: valueData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'R$ ' + value;
+                        }
+                    }
+                },
+                x: {
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Excluir Pagamento - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Excluir Pagamento</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'payment_list' %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <p class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Tem certeza que deseja excluir este pagamento?
+                </p>
+                <p>Esta ação não poderá ser desfeita.</p>
+                
+                <div class="mb-3">
+                    <strong>Cliente:</strong> {{ payment.client.name }}<br>
+                    <strong>Valor:</strong> R$ {{ payment.amount|floatformat:2 }}<br>
+                    <strong>Data:</strong> {{ payment.payment_date|date:"d/m/Y H:i" }}<br>
+                    {% if payment.sale %}
+                    <strong>Venda:</strong> {{ payment.sale.code }}<br>
+                    {% endif %}
+                    {% if payment.notes %}
+                    <strong>Observações:</strong> {{ payment.notes }}<br>
+                    {% endif %}
+                </div>
+                
+                {% if payment.sale %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Atenção: Excluir este pagamento irá alterar o status da venda para "Pendente".
+                </div>
+                {% endif %}
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Confirmar Exclusão</button>
+                    <a href="{% url 'payment_list' %}" class="btn btn-secondary">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

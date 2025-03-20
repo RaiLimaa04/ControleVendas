@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Excluir Cliente - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Excluir Cliente</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'client_list' %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <p class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Tem certeza que deseja excluir o cliente <strong>{{ client.name }}</strong>?
+                </p>
+                <p>Esta ação não poderá ser desfeita.</p>
+                
+                <div class="mb-3">
+                    <strong>Código:</strong> {{ client.code }}<br>
+                    <strong>Telefone:</strong> {{ client.phone }}<br>
+                    <strong>CPF/CNPJ:</strong> {{ client.cpf_cnpj|default:"Não informado" }}<br>
+                    <strong>Dívida Atual:</strong> R$ {{ client.total_debt|floatformat:2 }}
+                </div>
+                
+                {% if client.total_debt > 0 %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Atenção: Este cliente possui dívidas pendentes no valor de R$ {{ client.total_debt|floatformat:2 }}.
+                </div>
+                {% endif %}
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Confirmar Exclusão</button>
+                    <a href="{% url 'client_list' %}" class="btn btn-secondary">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

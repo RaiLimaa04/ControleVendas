@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }} - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ title }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'payment_list' %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            {{ form.client|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.sale|as_crispy_field }}
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            {{ form.amount|as_crispy_field }}
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Data de Pagamento</label>
+                                <p class="form-control-static">{% now "d/m/Y H:i" %}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            {{ form.notes|as_crispy_field }}
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">Salvar</button>
+                        <a href="{% url 'payment_list' %}" class="btn btn-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Informações do Cliente</h6>
+            </div>
+            <div class="card-body" id="client-info">
+                <p class="text-center text-muted">Selecione um cliente para ver suas informações.</p>
+            </div>
+        </div>
+        
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Detalhes da Venda</h6>
+            </div>
+            <div class="card-body" id="sale-info">
+                <p class="text-center text-muted">Selecione uma venda para ver seus detalhes.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // When client changes, update sale options and client info
+        $('#id_client').change(function() {
+            var clientId = $(this).val();
+            if (clientId) {
+                // Update client info
+                $.ajax({
+                    url: '/api/clients/' + clientId + '/info/',
+                    type: 'GET',
+                    success: function(data) {
+                        var html = '<div class="text-center mb-3">';
+                        html += '<i class="fas fa-user-circle fa-3x text-primary"></i>';
+                        html += '<h5 class="mt-2">' + data.name + '</h5>';
+                        html += '</div>';
+                        html += '<p><strong>Telefone:</strong> ' + data.phone + '</p>';
+                        html += '<p><strong>Dívida Atual:</strong> R$ ' + data.total_debt.toFixed(2) + '</p>';
+                        html += '<p><strong>Limite de Crédito:</strong> R$ ' + data.credit_limit.toFixed(2) + '</p>';
+                        
+                        $('#client-info').html(html);
+                    },
+                    error: function() {
+                        $('#client-info').html('<p class="text-center text-danger">Erro ao carregar informações do cliente.</p>');
+                    }
+                });
+                
+                // Update sale options
+                $.ajax({
+                    url: '/api/clients/' + clientId + '/sales/',
+                    type: 'GET',
+                    success: function(data) {
+                        var $saleSelect = $('#id_sale');
+                        $saleSelect.empty();
+                        $saleSelect.append('<option value="">---------</option>');
+                        
+                        if (data.sales.length > 0) {
+                            $.each(data.sales, function(i, sale) {
+                                $saleSelect.append('<option value="' + sale.id + '">' + sale.code + ' - R$ ' + sale.total_amount.toFixed(2) + '</option>');
+                            });
+                        }
+                    }
+                });
+            } else {
+                $('#client-info').html('<p class="text-center text-muted">Selecione um cliente para ver suas informações.</p>');
+                $('#id_sale').empty().append('<option value="">---------</option>');
+            }
+        });
+        
+        // When sale changes, update sale info
+        $('#id_sale').change(function() {
+            var saleId = $(this).val();
+            if (saleId) {
+                $.ajax({
+                    url: '/api/sales/' + saleId + '/info/',
+                    type: 'GET',
+                    success: function(data) {
+                        var html = '<p><strong>Código:</strong> ' + data.code + '</p>';
+                        html += '<p><strong>Data:</strong> ' + data.date + '</p>';
+                        html += '<p><strong>Valor Total:</strong> R$ ' + data.total_amount.toFixed(2) + '</p>';
+                        html += '<p><strong>Forma de Pagamento:</strong> ' + data.payment_method + '</p>';
+                        html += '<p><strong>Status:</strong> ' + data.status + '</p>';
+                        
+                        // Set the amount field to the sale total amount
+                        $('#id_amount').val(data.total_amount.toFixed(2));
+                        
+                        $('#sale-info').html(html);
+                    },
+                    error: function() {
+                        $('#sale-info').html('<p class="text-center text-danger">Erro ao carregar informações da venda.</p>');
+                    }
+                });
+            } else {
+                $('#sale-info').html('<p class="text-center text-muted">Selecione uma venda para ver seus detalhes.</p>');
+            }
+        });
+    });
+</script>
+{% endblock %}
