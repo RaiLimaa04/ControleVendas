@@ -63,9 +63,9 @@
                         <td>{{ client.name }}</td>
                         <td>{{ client.phone }}</td>
                         <td>{{ client.cpf_cnpj|default:"-" }}</td>
-                        <td>R$ {{ client.total_debt|floatformat:2 }}</td>
+                        <td>R$ {{ client.annotated_debt|floatformat:2 }}</td>
                         <td>
-                            {% if client.total_debt > 0 %}
+                            {% if client.annotated_debt > 0 %}
                                 {% if client.is_over_limit %}
                                 <span class="badge bg-danger">Acima do Limite</span>
                                 {% else %}

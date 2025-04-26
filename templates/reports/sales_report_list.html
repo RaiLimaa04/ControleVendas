@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Relatórios de Vendas{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Relatórios de Vendas</h1>
+        <a href="{% url 'reports:sales_report_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Novo Relatório
+        </a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Período</th>
+                    <th>Total de Vendas</th>
+                    <th>Lucro Total</th>
+                    <th>Total de Itens</th>
+                    <th>Data de Criação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in reports %}
+                <tr>
+                    <td>{{ report.start_date|date:"d/m/Y" }} a {{ report.end_date|date:"d/m/Y" }}</td>
+                    <td>R$ {{ report.total_sales|floatformat:2 }}</td>
+                    <td>R$ {{ report.total_profit|floatformat:2 }}</td>
+                    <td>{{ report.total_items }}</td>
+                    <td>{{ report.created_at|date:"d/m/Y H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center">Nenhum relatório encontrado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %} 

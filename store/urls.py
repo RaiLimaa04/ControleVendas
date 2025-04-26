@@ -1,6 +1,10 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from . import views
+from .views import (
+    ProductListView, ProductCreateView, ProductUpdateView, ProductDeleteView, ProductDetailView,
+    # ... outros imports ...
+)
 
 urlpatterns = [
     # Authentication
@@ -17,11 +21,11 @@ urlpatterns = [
     path('categories/<int:pk>/delete/', views.category_delete, name='category_delete'),
     
     # Products
-    path('products/', views.product_list, name='product_list'),
-    path('products/<int:pk>/', views.product_detail, name='product_detail'),
-    path('products/new/', views.product_create, name='product_create'),
-    path('products/<int:pk>/edit/', views.product_update, name='product_update'),
-    path('products/<int:pk>/delete/', views.product_delete, name='product_delete'),
+    path('products/', ProductListView.as_view(), name='product_list'),
+    path('products/<int:pk>/', ProductDetailView.as_view(), name='product_detail'),
+    path('products/new/', ProductCreateView.as_view(), name='product_create'),
+    path('products/<int:pk>/edit/', ProductUpdateView.as_view(), name='product_update'),
+    path('products/<int:pk>/delete/', ProductDeleteView.as_view(), name='product_delete'),
     
     # Clients
     path('clients/', views.client_list, name='client_list'),

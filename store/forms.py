@@ -5,9 +5,10 @@ from .models import Category, Product, Client, Sale, SaleItem, StockMovement, Pa
 class CategoryForm(forms.ModelForm):
     class Meta:
         model = Category
-        fields = ['name']
+        fields = ['name', 'code_prefix']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'})
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'code_prefix': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 2}),
         }
 
 class ProductForm(forms.ModelForm):

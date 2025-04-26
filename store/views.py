@@ -8,10 +8,14 @@ from django.http import JsonResponse
 from django.core.paginator import Paginator
 from datetime import timedelta
 import json
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
 
 from .models import Category, Product, Client, Sale, SaleItem, StockMovement, Payment
 from .forms import (CategoryForm, ProductForm, ClientForm, SaleForm, SaleItemForm, 
                    StockMovementForm, PaymentForm, SaleSearchForm, ProductSearchForm, ClientSearchForm)
+from .utils import SuccessMessageMixin, DeleteObjectMixin, CreateObjectMixin, UpdateObjectMixin
 
 @login_required
 def dashboard(request):
@@ -129,133 +133,137 @@ def category_delete(request, pk):
     return render(request, 'store/category/confirm_delete.html', {'category': category})
 
 # Product views
-@login_required
-def product_list(request):
-    form = ProductSearchForm(request.GET)
-    products = Product.objects.all()
-    
-    if form.is_valid():
-        name = form.cleaned_data.get('name')
-        category = form.cleaned_data.get('category')
-        low_stock = form.cleaned_data.get('low_stock')
+class ProductListView(LoginRequiredMixin, ListView):
+    model = Product
+    template_name = 'store/product/list.html'
+    context_object_name = 'products'
+    paginate_by = 10
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        form = ProductSearchForm(self.request.GET)
         
-        if name:
-            products = products.filter(Q(name__icontains=name) | Q(code__icontains=name))
-        if category:
-            products = products.filter(category=category)
-        if low_stock:
-            products = products.filter(stock_quantity__lte=F('min_stock'))
-    
-    paginator = Paginator(products, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    return render(request, 'store/product/list.html', {'page_obj': page_obj, 'form': form})
-
-@login_required
-def product_detail(request, pk):
-    product = get_object_or_404(Product, pk=pk)
-    stock_movements = product.stock_movements.all().order_by('-date')[:10]
-    sales = SaleItem.objects.filter(product=product).order_by('-sale__date')[:10]
-    
-    return render(request, 'store/product/detail.html', {
-        'product': product,
-        'stock_movements': stock_movements,
-        'sales': sales
-    })
-
-@login_required
-def product_create(request):
-    if request.method == 'POST':
-        form = ProductForm(request.POST, request.FILES)
         if form.is_valid():
-            product = form.save()
+            name = form.cleaned_data.get('name')
+            category = form.cleaned_data.get('category')
+            low_stock = form.cleaned_data.get('low_stock')
             
-            # Create initial stock movement
-            if product.stock_quantity > 0:
-                StockMovement.objects.create(
-                    product=product,
-                    quantity=product.stock_quantity,
-                    movement_type='entrada',
-                    reason='Estoque inicial'
-                )
-            
-            messages.success(request, 'Produto criado com sucesso!')
-            return redirect('product_list')
-    else:
-        form = ProductForm()
-    
-    return render(request, 'store/product/form.html', {'form': form, 'title': 'Novo Produto'})
+            if name:
+                queryset = queryset.filter(Q(name__icontains=name) | Q(code__icontains=name))
+            if category:
+                queryset = queryset.filter(category=category)
+            if low_stock:
+                queryset = queryset.filter(stock_quantity__lte=F('min_stock'))
+        
+        return queryset
 
-@login_required
-def product_update(request, pk):
-    product = get_object_or_404(Product, pk=pk)
-    old_stock = product.stock_quantity
-    
-    if request.method == 'POST':
-        form = ProductForm(request.POST, request.FILES, instance=product)
-        if form.is_valid():
-            product = form.save()
-            
-            # Create stock movement if stock quantity changed
-            new_stock = product.stock_quantity
-            if new_stock != old_stock:
-                difference = new_stock - old_stock
-                movement_type = 'entrada' if difference > 0 else 'saida'
-                
-                StockMovement.objects.create(
-                    product=product,
-                    quantity=abs(difference),
-                    movement_type=movement_type,
-                    reason='Ajuste manual de estoque'
-                )
-            
-            messages.success(request, 'Produto atualizado com sucesso!')
-            return redirect('product_list')
-    else:
-        form = ProductForm(instance=product)
-    
-    return render(request, 'store/product/form.html', {'form': form, 'title': 'Editar Produto'})
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['form'] = ProductSearchForm(self.request.GET)
+        return context
 
-@login_required
-def product_delete(request, pk):
-    product = get_object_or_404(Product, pk=pk)
-    
-    if request.method == 'POST':
-        try:
-            product.delete()
-            messages.success(request, 'Produto excluído com sucesso!')
-        except Exception as e:
-            messages.error(request, f'Não foi possível excluir o produto: {str(e)}')
-        return redirect('product_list')
-    
-    return render(request, 'store/product/confirm_delete.html', {'product': product})
+class ProductCreateView(LoginRequiredMixin, CreateObjectMixin, CreateView):
+    model = Product
+    form_class = ProductForm
+    template_name = 'store/product/form.html'
+    success_message = 'Produto criado com sucesso!'
+    redirect_url = reverse_lazy('product_list')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        if self.object.stock_quantity > 0:
+            StockMovement.objects.create(
+                product=self.object,
+                quantity=self.object.stock_quantity,
+                movement_type='entrada',
+                reason='Estoque inicial'
+            )
+        return response
+
+class ProductUpdateView(LoginRequiredMixin, UpdateObjectMixin, UpdateView):
+    model = Product
+    form_class = ProductForm
+    template_name = 'store/product/form.html'
+    success_message = 'Produto atualizado com sucesso!'
+    redirect_url = reverse_lazy('product_list')
+
+    def form_valid(self, form):
+        old_stock = self.object.stock_quantity
+        response = super().form_valid(form)
+        
+        if self.object.stock_quantity != old_stock:
+            difference = self.object.stock_quantity - old_stock
+            movement_type = 'entrada' if difference > 0 else 'saida'
+            
+            StockMovement.objects.create(
+                product=self.object,
+                quantity=abs(difference),
+                movement_type=movement_type,
+                reason='Ajuste manual de estoque'
+            )
+        
+        return response
+
+class ProductDeleteView(LoginRequiredMixin, DeleteObjectMixin, DeleteView):
+    model = Product
+    template_name = 'store/product/confirm_delete.html'
+    success_message = 'Produto excluído com sucesso!'
+    error_message = 'Não foi possível excluir o produto'
+    redirect_url = reverse_lazy('product_list')
+
+class ProductDetailView(LoginRequiredMixin, DetailView):
+    model = Product
+    template_name = 'store/product/detail.html'
+    context_object_name = 'product'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['stock_movements'] = self.object.stock_movements.all().order_by('-date')[:10]
+        context['sales'] = self.object.sale_items.all().order_by('-sale__date')[:10]
+        return context
 
 # Client views
 @login_required
 def client_list(request):
-    form = ClientSearchForm(request.GET)
     clients = Client.objects.all()
     
-    if form.is_valid():
-        name = form.cleaned_data.get('name')
-        has_debt = form.cleaned_data.get('has_debt')
-        
-        if name:
-            clients = clients.filter(Q(name__icontains=name) | Q(code__icontains=name) | Q(cpf_cnpj__icontains=name))
-        
-        if has_debt:
-            clients_with_debt = []
-            for client in clients:
-                if client.total_debt > 0:
-                    clients_with_debt.append(client.id)
-            clients = clients.filter(id__in=clients_with_debt)
+    # Adicionar filtros
+    name = request.GET.get('name')
+    has_debt = request.GET.get('has_debt')
     
+    if name:
+        clients = clients.filter(name__icontains=name)
+    
+    # Anotar a dívida total para cada cliente
+    clients = clients.annotate(
+        annotated_debt=Sum(
+            'sales__total_amount',
+            filter=Q(sales__status='pendente'),
+            default=0
+        ) - Sum(
+            'payments__amount',
+            filter=Q(payments__sale__status='pendente'),
+            default=0
+        )
+    )
+    
+    if has_debt:
+        clients = clients.filter(annotated_debt__gt=0)
+    
+    # Paginação
     paginator = Paginator(clients, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    return render(request, 'store/client/list.html', {'page_obj': page_obj, 'form': form})
+    # Formulário de busca
+    form = ClientSearchForm(request.GET or None)
+    
+    context = {
+        'page_obj': page_obj,
+        'form': form,
+    }
+    
+    return render(request, 'store/client/list.html', context)
 
 @login_required
 def client_detail(request, pk):

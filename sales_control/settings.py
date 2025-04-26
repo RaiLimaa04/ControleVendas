@@ -14,7 +14,16 @@ SECRET_KEY = 'django-insecure-h7d3f8h3f8h38fh38fh38fh38fh38fh38fh38fh38fh38fh38f
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '127.0.0.1',
+    'localhost',
+    'a7ca-45-228-194-16.ngrok-free.app'
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://a7ca-45-228-194-16.ngrok-free.app'
+]
+
 
 # Application definition
 INSTALLED_APPS = [
@@ -27,6 +36,8 @@ INSTALLED_APPS = [
     'crispy_forms',
     'crispy_bootstrap5',
     'store',
+    'reports',
+    'debug_toolbar',
 ]
 
 MIDDLEWARE = [
@@ -37,6 +48,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 ROOT_URLCONF = 'sales_control.urls'
@@ -108,3 +120,8 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 # Login URLs
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGIN_URL = 'login'
+
+# Debug Toolbar settings
+INTERNAL_IPS = [
+    '127.0.0.1',
+]

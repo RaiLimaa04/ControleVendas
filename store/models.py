@@ -2,10 +2,12 @@ from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator
 from django.db.models import Sum, F, Q
+from django.urls import reverse
 
 class Category(models.Model):
     """Product category model"""
     name = models.CharField(max_length=100, unique=True, verbose_name="Nome")
+    code_prefix = models.CharField(max_length=2, unique=True, verbose_name="Prefixo do Código")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Data de Cadastro")
     
     class Meta:
@@ -18,7 +20,7 @@ class Category(models.Model):
 
 class Product(models.Model):
     """Product model"""
-    code = models.CharField(max_length=20, unique=True, verbose_name="Código")
+    code = models.CharField(max_length=20, unique=True, verbose_name="Código", blank=True)
     name = models.CharField(max_length=100, verbose_name="Nome")
     description = models.TextField(blank=True, null=True, verbose_name="Descrição")
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products', verbose_name="Categoria")
@@ -38,6 +40,28 @@ class Product(models.Model):
     
     def __str__(self):
         return f"{self.code} - {self.name}"
+    
+    def save(self, *args, **kwargs):
+        if not self.code and self.category:
+            # Pega o último produto da categoria
+            last_product = Product.objects.filter(
+                category=self.category
+            ).order_by('-code').first()
+            
+            if last_product and last_product.code:
+                # Extrai o número do último código
+                last_number = int(last_product.code[2:])
+                new_number = last_number + 1
+            else:
+                new_number = 1
+            
+            # Gera o novo código
+            self.code = f"{self.category.code_prefix}{new_number:02d}"
+        
+        super().save(*args, **kwargs)
+    
+    def get_absolute_url(self):
+        return reverse('product_detail', kwargs={'pk': self.pk})
     
     @property
     def profit_margin(self):
@@ -74,20 +98,25 @@ class Client(models.Model):
     @property
     def total_debt(self):
         """Calculate total debt from unpaid sales minus payments"""
-        # Get total amount from pending sales
-        pending_total = self.sales.filter(status='pendente').aggregate(
-            total=Sum('total_amount')
-        )['total'] or 0
-        
-        # Get total payments for pending sales
-        payments_total = self.payments.filter(
-            sale__status='pendente'
-        ).aggregate(
-            total=Sum('amount')
-        )['total'] or 0
-        
-        # Return the difference
-        return pending_total - payments_total
+        # Usando cache para evitar múltiplas consultas
+        if not hasattr(self, '_total_debt'):
+            self._total_debt = (
+                self.sales.filter(status='pendente').aggregate(
+                    total=Sum('total_amount')
+                )['total'] or 0
+            ) - (
+                self.payments.filter(
+                    sale__status='pendente'
+                ).aggregate(
+                    total=Sum('amount')
+                )['total'] or 0
+            )
+        return self._total_debt
+
+    def clear_debt_cache(self):
+        """Clear the cached total_debt value"""
+        if hasattr(self, '_total_debt'):
+            delattr(self, '_total_debt')
     
     @property
     def is_over_limit(self):
