@@ -9,4 +9,4 @@ urlpatterns = [
     path('top-products/', views.TopProductsReportListView.as_view(), name='top_products_report_list'),
     path('top-products/create/', views.TopProductsReportCreateView.as_view(), name='top_products_report_create'),
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
-] 
+]

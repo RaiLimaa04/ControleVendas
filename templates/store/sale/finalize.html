@@ -6,7 +6,7 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Finalizar Venda</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
-        <a href="{% url 'sale_item_create' sale.id %}" class="btn btn-sm btn-secondary">
+        <a href="{% url 'store:sale_item_create' sale.id %}" class="btn btn-sm btn-secondary">
             <i class="fas fa-arrow-left me-1"></i> Voltar
         </a>
     </div>
@@ -73,7 +73,7 @@
                         <button type="submit" class="btn btn-success">
                             <i class="fas fa-check me-2"></i> Finalizar Venda
                         </button>
-                        <a href="{% url 'sale_item_create' sale.id %}" class="btn btn-secondary">
+                        <a href="{% url 'store:sale_item_create' sale.id %}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left me-2"></i> Voltar
                         </a>
                     </div>

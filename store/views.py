@@ -761,3 +761,14 @@ def api_get_client_sales(request, client_id):
         })
     
     return JsonResponse({'sales': sales_data})
+    
+    sales_data = []
+    for sale in sales:
+        sales_data.append({
+            'id': sale.id,
+            'code': sale.code,
+            'date': sale.date.strftime('%d/%m/%Y'),
+            'total_amount': float(sale.total_amount)
+        })
+    
+    return JsonResponse({'sales': sales_data})
