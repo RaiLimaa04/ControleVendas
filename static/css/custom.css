@@ -14,13 +14,13 @@
     background-color: rgba(255, 255, 255, 0.1);
 }
 .content {
-    padding: 20px;
+    padding: 1.5rem;
 }
 .card-dashboard {
-    border-left: 4px solid #0d6efd;
+    border-left: 3px solid #4a4a4a;
 }
 .card-dashboard.success {
-    border-left-color: #198754;
+    border-left-color: #28a745;
 }
 .card-dashboard.warning {
     border-left-color: #ffc107;
@@ -29,5 +29,5 @@
     border-left-color: #dc3545;
 }
 .table-hover tbody tr:hover {
-    background-color: rgba(0, 123, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.02);
 }
