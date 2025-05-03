@@ -11,10 +11,15 @@ import json
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
+from django.core.cache import cache
+from django.db.models import Prefetch
+from django.views.decorators.cache import cache_page
+from django.utils.decorators import method_decorator
+from django import forms
 
-from .models import Category, Product, Client, Sale, SaleItem, StockMovement, Payment
+from .models import Category, Product, Client, Sale, SaleItem, StockMovement, Payment, StockMovementItem
 from .forms import (CategoryForm, ProductForm, ClientForm, SaleForm, SaleItemForm, 
-                   StockMovementForm, PaymentForm, SaleSearchForm, ProductSearchForm, ClientSearchForm)
+                   StockMovementForm, PaymentForm, SaleSearchForm, ProductSearchForm, ClientSearchForm, StockMovementItemForm)
 from .utils import SuccessMessageMixin, DeleteObjectMixin, CreateObjectMixin, UpdateObjectMixin
 
 @login_required
@@ -140,9 +145,10 @@ class ProductListView(LoginRequiredMixin, ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        form = ProductSearchForm(self.request.GET)
+        # Primeiro aplicamos os filtros
+        queryset = Product.objects.select_related('category')
         
+        form = ProductSearchForm(self.request.GET)
         if form.is_valid():
             name = form.cleaned_data.get('name')
             category = form.cleaned_data.get('category')
@@ -154,6 +160,15 @@ class ProductListView(LoginRequiredMixin, ListView):
                 queryset = queryset.filter(category=category)
             if low_stock:
                 queryset = queryset.filter(stock_quantity__lte=F('min_stock'))
+        
+        # Depois aplicamos o prefetch_related
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                'stock_movement_items',
+                queryset=StockMovementItem.objects.select_related('movement').order_by('-movement__date')[:5],
+                to_attr='recent_movements'
+            )
+        )
         
         return queryset
 
@@ -167,11 +182,11 @@ class ProductCreateView(LoginRequiredMixin, CreateObjectMixin, CreateView):
     form_class = ProductForm
     template_name = 'store/product/form.html'
     success_message = 'Produto criado com sucesso!'
-    redirect_url = reverse_lazy('product_list')
+    success_url = reverse_lazy('product_list')
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        if self.object.stock_quantity > 0:
+        if self.object and self.object.stock_quantity > 0:
             StockMovement.objects.create(
                 product=self.object,
                 quantity=self.object.stock_quantity,
@@ -209,17 +224,42 @@ class ProductDeleteView(LoginRequiredMixin, DeleteObjectMixin, DeleteView):
     template_name = 'store/product/confirm_delete.html'
     success_message = 'Produto excluído com sucesso!'
     error_message = 'Não foi possível excluir o produto'
-    redirect_url = reverse_lazy('product_list')
+    success_url = reverse_lazy('product_list')
 
 class ProductDetailView(LoginRequiredMixin, DetailView):
     model = Product
     template_name = 'store/product/detail.html'
     context_object_name = 'product'
 
+    def get_queryset(self):
+        return Product.objects.select_related('category')
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['stock_movements'] = self.object.stock_movements.all().order_by('-date')[:10]
-        context['sales'] = self.object.sale_items.all().order_by('-sale__date')[:10]
+        # Usar cache para dados frequentemente acessados
+        cache_key = f'product_detail_{self.object.id}'
+        cached_data = cache.get(cache_key)
+        
+        if cached_data is None:
+            # Obter os últimos 10 movimentos de estoque através dos itens
+            context['stock_movements'] = StockMovementItem.objects.filter(
+                product=self.object
+            ).select_related('movement').order_by('-movement__date')[:10]
+            
+            # Obter os últimos 10 itens de venda
+            context['sales'] = SaleItem.objects.filter(
+                product=self.object
+            ).select_related('sale').order_by('-sale__date')[:10]
+            
+            # Cache por 1 hora, mas sem a imagem
+            cache_data = {
+                'stock_movements': context['stock_movements'],
+                'sales': context['sales']
+            }
+            cache.set(cache_key, cache_data, 3600)
+        else:
+            context.update(cached_data)
+            
         return context
 
 # Client views
@@ -360,11 +400,11 @@ def sale_detail(request, pk):
     # Obtém os pagamentos da venda
     payments = sale.payments.all()
 
-    # Calculando o total dos itens (ajuste conforme o modelo)
-    total_sale = items.aggregate(total_amount=Sum('unit_price'))['total_amount'] or 0 # Caso os itens tenham preço
+    # Corrigido: somar total_price dos itens
+    total_sale = items.aggregate(total_amount=Sum('total_price'))['total_amount'] or 0
 
     # Calculando o total pago
-    total_paid = payments.aggregate(total_paid=Sum('amount'))['total_paid'] or 0  # Caso o modelo de pagamento tenha um campo 'amount'
+    total_paid = payments.aggregate(total_paid=Sum('amount'))['total_paid'] or 0
 
     # Calculando o saldo devedor
     total_due = total_sale - total_paid
@@ -574,6 +614,24 @@ def payment_delete(request, pk):
     
     return render(request, 'store/payment/confirm_delete.html', {'payment': payment})
 
+@login_required
+def payment_detail(request, pk):
+    payment = get_object_or_404(Payment, pk=pk)
+    return render(request, 'store/payment/detail.html', {'payment': payment})
+
+@login_required
+def payment_update(request, pk):
+    payment = get_object_or_404(Payment, pk=pk)
+    if request.method == 'POST':
+        form = PaymentForm(request.POST, instance=payment)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Pagamento atualizado com sucesso!')
+            return redirect('payment_detail', pk=payment.pk)
+    else:
+        form = PaymentForm(instance=payment)
+    return render(request, 'store/payment/form.html', {'form': form, 'title': 'Editar Pagamento'})
+
 # Report views
 @login_required
 def report_sales(request):
@@ -738,9 +796,10 @@ def report_stock(request):
     return render(request, 'store/reports/stock.html', context)
 
 # API views for AJAX
+@method_decorator(cache_page(60), name='dispatch')
 @login_required
 def api_get_product_info(request, product_id):
-    product = get_object_or_404(Product, pk=product_id)
+    product = get_object_or_404(Product.objects.only('sale_price', 'stock_quantity'), pk=product_id)
     return JsonResponse({
         'sale_price': float(product.sale_price),
         'stock_quantity': product.stock_quantity
@@ -761,14 +820,108 @@ def api_get_client_sales(request, client_id):
         })
     
     return JsonResponse({'sales': sales_data})
+
+class StockMovementCreateView(LoginRequiredMixin, CreateView):
+    model = StockMovement
+    template_name = 'store/stock_movement/create.html'
+    fields = ['movement_type', 'notes']
     
-    sales_data = []
-    for sale in sales:
-        sales_data.append({
-            'id': sale.id,
-            'code': sale.code,
-            'date': sale.date.strftime('%d/%m/%Y'),
-            'total_amount': float(sale.total_amount)
-        })
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['products'] = Product.objects.all()
+        return context
     
-    return JsonResponse({'sales': sales_data})
+    def form_valid(self, form):
+        self.object = form.save()
+        return redirect('stock_movement_add_items', pk=self.object.pk)
+
+class StockMovementAddItemsView(LoginRequiredMixin, UpdateView):
+    model = StockMovement
+    template_name = 'store/stock_movement/add_items.html'
+    fields = []
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['products'] = Product.objects.all()
+        context['items'] = self.object.items.all()
+        context['movement'] = self.object
+        
+        # Criando o formset
+        StockMovementItemFormSet = forms.formset_factory(StockMovementItemForm, extra=1)
+        if self.request.method == 'POST':
+            context['formset'] = StockMovementItemFormSet(self.request.POST)
+        else:
+            context['formset'] = StockMovementItemFormSet()
+            
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        StockMovementItemFormSet = forms.formset_factory(StockMovementItemForm)
+        formset = StockMovementItemFormSet(request.POST)
+        
+        if formset.is_valid():
+            for form in formset:
+                if form.cleaned_data:  # Verifica se o formulário tem dados
+                    item = form.save(commit=False)
+                    item.movement = self.object
+                    item.save()  # O método save() do StockMovementItem já atualiza o estoque
+                    
+            messages.success(request, 'Itens adicionados com sucesso!')
+            return redirect('stock_movement_detail', pk=self.object.pk)
+        else:
+            for error in formset.errors:
+                messages.error(request, error)
+        
+        return self.render_to_response(self.get_context_data())
+
+class StockMovementDetailView(LoginRequiredMixin, DetailView):
+    model = StockMovement
+    template_name = 'store/stock_movement/detail.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['items'] = self.object.items.all()
+        return context
+
+class StockMovementListView(LoginRequiredMixin, ListView):
+    model = StockMovement
+    template_name = 'store/stock_movement/list.html'
+    context_object_name = 'movements'
+    ordering = ['-date']
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        movement_type = self.request.GET.get('movement_type')
+        if movement_type:
+            queryset = queryset.filter(movement_type=movement_type)
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Calcula o valor total de todas as movimentações
+        total_value = 0
+        for movement in context['movements']:
+            total_value += movement.get_total_value()
+        
+        context['total_value'] = total_value
+        return context
+
+class StockMovementItemDeleteView(LoginRequiredMixin, DeleteView):
+    model = StockMovementItem
+    template_name = 'store/stock_movement/confirm_delete_item.html'
+    
+    def get_success_url(self):
+        return reverse('stock_movement_add_items', kwargs={'pk': self.object.movement.pk})
+
+def product_info(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    return JsonResponse({
+        'id': product.id,
+        'code': product.code,
+        'name': product.name,
+        'sale_price': str(product.sale_price),
+        'stock_quantity': product.stock_quantity,
+        'min_stock': product.min_stock
+    })

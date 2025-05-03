@@ -7,10 +7,10 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Itens da Venda {{ sale.code }}</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
-        <a href="{% url 'store:sale_detail' sale.id %}" class="btn btn-sm btn-secondary me-2">
+        <a href="{% url 'sale_detail' sale.id %}" class="btn btn-sm btn-secondary me-2">
             <i class="fas fa-arrow-left me-1"></i> Voltar
         </a>
-        <a href="{% url 'store:sale_finalize' sale.id %}" class="btn btn-sm btn-success">
+        <a href="{% url 'sale_finalize' sale.id %}" class="btn btn-sm btn-success">
             <i class="fas fa-check me-1"></i> Finalizar Venda
         </a>
     </div>
@@ -46,7 +46,7 @@
     <div class="col-md-8">
         <div class="card shadow mb-4">
             <div class="card-header py-3">
-                <h6 class="m-0 font-weight-bold text-primary">Itens Adicionados</h6>
+                <h6 class="m-0 font-weight-bold text-primary">Itens da Venda</h6>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
@@ -61,14 +61,14 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for item in items %}
+                            {% for item in sale.items.all %}
                             <tr>
                                 <td>{{ item.product.name }}</td>
                                 <td>{{ item.quantity }}</td>
                                 <td>R$ {{ item.unit_price|floatformat:2 }}</td>
                                 <td>R$ {{ item.total_price|floatformat:2 }}</td>
                                 <td>
-                                    <a href="{% url 'store:sale_item_delete' item.id %}" class="btn btn-sm btn-danger">
+                                    <a href="{% url 'sale_item_delete' item.id %}" class="btn btn-sm btn-danger">
                                         <i class="fas fa-trash"></i>
                                     </a>
                                 </td>
@@ -80,19 +80,13 @@
                             {% endfor %}
                         </tbody>
                         <tfoot>
-                            <tr class="table-active">
+                            <tr>
                                 <th colspan="3" class="text-end">Total:</th>
                                 <th>R$ {{ sale.total_amount|floatformat:2 }}</th>
                                 <th></th>
                             </tr>
                         </tfoot>
                     </table>
-                </div>
-                
-                <div class="d-grid gap-2 mt-4">
-                    <a href="{% url 'store:sale_finalize' sale.id %}" class="btn btn-success">
-                        <i class="fas fa-check me-2"></i> Finalizar Venda
-                    </a>
                 </div>
             </div>
         </div>
@@ -102,75 +96,52 @@
 
 {% block extra_js %}
 <script>
-    $(document).ready(function() {
-        // When product changes, update product info and unit price
-        $('#id_product').change(function() {
-            var productId = $(this).val();
-            if (productId) {
-                $.ajax({
-                    url: '/api/products/' + productId + '/info/',
-                    type: 'GET',
-                    success: function(data) {
-                        // Update product info
-                        var html = '<div class="text-center mb-3">';
-                        html += '<i class="fas fa-box fa-3x text-primary"></i>';
-                        html += '<h5 class="mt-2">' + data.name + '</h5>';
-                        html += '</div>';
-                        html += '<p><strong>Código:</strong> ' + data.code + '</p>';
-                        html += '<p><strong>Preço:</strong> R$ ' + data.sale_price.toFixed(2) + '</p>';
-                        html += '<p><strong>Estoque Disponível:</strong> ' + data.stock_quantity + '</p>';
-                        
-                        if (data.stock_quantity <= 0) {
-                            html += '<div class="alert alert-danger">';
-                            html += '<i class="fas fa-exclamation-triangle me-2"></i>';
-                            html += 'Este produto está sem estoque!';
-                            html += '</div>';
-                        } else if (data.stock_quantity <= data.min_stock) {
-                            html += '<div class="alert alert-warning">';
-                            html += '<i class="fas fa-exclamation-circle me-2"></i>';
-                            html += 'Este produto está com estoque baixo!';
-                            html += '</div>';
-                        }
-                        
-                        $('#product-info').html(html);
-                        
-                        // Set unit price
-                        $('#id_unit_price').val(data.sale_price.toFixed(2));
-                        
-                        // Set max quantity
-                        $('#id_quantity').attr('max', data.stock_quantity);
-                    },
-                    error: function() {
-                        $('#product-info').html('<p class="text-center text-danger">Erro ao carregar informações do produto.</p>');
-                    }
-                });
-            } else {
-                $('#product-info').html('<p class="text-center text-muted">Selecione um produto para ver suas informações.</p>');
-                $('#id_unit_price').val('');
-            }
-        });
-        
-        // Calculate total price when quantity or unit price changes
-        $('#id_quantity, #id_unit_price').on('input', function() {
-            var quantity = parseFloat($('#id_quantity').val()) || 0;
-            var unitPrice = parseFloat($('#id_unit_price').val()) || 0;
-            var totalPrice = quantity * unitPrice;
-            
-            // Display total price
-            if (totalPrice > 0) {
-                var html = '<p class="alert alert-info mt-3">';
-                html += '<strong>Total:</strong> R$ ' + totalPrice.toFixed(2);
-                html += '</p>';
-                
-                if (!$('#total-price-preview').length) {
-                    $('<div id="total-price-preview"></div>').insertAfter('#id_unit_price');
+    function updateProductInfo(select) {
+        var productId = select.value;
+        if (productId) {
+            $.ajax({
+                url: '/api/products/' + productId + '/info/',
+                type: 'GET',
+                success: function(data) {
+                    var html = '<div class="text-center mb-3">';
+                    html += '<h5 class="mt-2">' + data.name + '</h5>';
+                    html += '</div>';
+                    html += '<p><strong>Código:</strong> ' + data.code + '</p>';
+                    html += '<p><strong>Preço de Venda:</strong> R$ ' + data.sale_price + '</p>';
+                    html += '<p><strong>Estoque Disponível:</strong> ' + data.stock_quantity + '</p>';
+                    
+                    $('#product-info').html(html);
+                    
+                    // Atualiza o preço unitário
+                    $('#id_unit_price').val(data.sale_price);
+                    updateTotalPrice();
+                },
+                error: function() {
+                    $('#product-info').html('<p class="text-center text-danger">Erro ao carregar informações do produto.</p>');
                 }
-                
-                $('#total-price-preview').html(html);
-            } else {
-                $('#total-price-preview').remove();
-            }
-        });
+            });
+        } else {
+            $('#product-info').html('<p class="text-center text-muted">Selecione um produto para ver suas informações.</p>');
+        }
+    }
+    
+    function updateTotalPrice() {
+        var quantity = parseFloat($('#id_quantity').val()) || 0;
+        var unitPrice = parseFloat($('#id_unit_price').val()) || 0;
+        var total = quantity * unitPrice;
+        
+        // Atualiza o total na tabela se houver itens
+        if (total > 0) {
+            $('.table tbody tr:last-child td:last-child').prev().text('R$ ' + total.toFixed(2));
+        }
+    }
+    
+    // Atualiza as informações do produto quando a página carrega
+    $(document).ready(function() {
+        var productSelect = $('#id_product');
+        if (productSelect.val()) {
+            updateProductInfo(productSelect);
+        }
     });
 </script>
 {% endblock %}

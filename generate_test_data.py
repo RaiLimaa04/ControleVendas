@@ -49,7 +49,11 @@ def create_products():
         ('Caderno', 'PA', 15.90, 10.00),
         ('Caneta', 'PA', 2.90, 1.50),
     ]
-    
+    # Produtos com estoque baixo
+    low_stock_products = [
+        ('Açúcar 1kg', 'AL', 4.50, 3.00, 3, 10),  # estoque 3, mínimo 10
+        ('Água Mineral 500ml', 'BE', 2.00, 1.00, 2, 8),
+    ]
     for name, category_code, sale_price, cost_price in products:
         try:
             category = Category.objects.get(code_prefix=category_code)
@@ -73,6 +77,26 @@ def create_products():
                 print(f"Estoque do produto {name} atualizado")
         except Exception as e:
             print(f"Erro ao criar produto {name}: {str(e)}")
+            traceback.print_exc()
+    # Adicionando produtos com estoque baixo
+    for name, category_code, sale_price, cost_price, stock_quantity, min_stock in low_stock_products:
+        try:
+            category = Category.objects.get(code_prefix=category_code)
+            product, created = Product.objects.get_or_create(
+                name=name,
+                defaults={
+                    'category': category,
+                    'sale_price': sale_price,
+                    'cost_price': cost_price,
+                    'stock_quantity': stock_quantity,
+                    'min_stock': min_stock,
+                    'supplier': 'Fornecedor Teste'
+                }
+            )
+            if created:
+                print(f"Produto de baixo estoque criado: {name}")
+        except Exception as e:
+            print(f"Erro ao criar produto de baixo estoque {name}: {str(e)}")
             traceback.print_exc()
 
 def create_clients():
@@ -124,13 +148,17 @@ def create_sales():
             try:
                 with transaction.atomic():
                     client = random.choice(clients)
+                    # 20% das vendas serão pendentes
+                    status = 'pago'
+                    if random.random() < 0.2:
+                        status = 'pendente'
                     sale = Sale.objects.create(
                         code=f'V{date.strftime("%Y%m%d")}{random.randint(1000, 9999)}',
                         client=client,
                         date=date,
                         total_amount=0,
                         payment_method=random.choice(['dinheiro', 'cartao', 'pix']),
-                        status='pago'
+                        status=status
                     )
                     
                     # Adicionar 1-5 itens por venda
@@ -164,7 +192,7 @@ def create_sales():
                         sale.total_amount = total_amount
                         sale.save()
                         if i % 10 == 0:  # Mostrar progresso a cada 10 dias
-                            print(f"Criada venda para o dia {date.strftime('%d/%m/%Y')}")
+                            print(f"Criada venda para o dia {date.strftime('%d/%m/%Y')} (status: {status})")
                     else:
                         sale.delete()
                         print(f"Venda cancelada por falta de estoque - dia {date.strftime('%d/%m/%Y')}")

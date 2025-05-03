@@ -109,21 +109,17 @@
                                 <tbody>
                                     {% for movement in stock_movements %}
                                     <tr>
-                                        <td>{{ movement.date|date:"d/m/Y H:i" }}</td>
+                                        <td>{{ movement.movement.date|date:"d/m/Y H:i" }}</td>
                                         <td>
-                                            {% if movement.movement_type == 'entrada' %}
-                                            <span class="badge bg-success">Entrada</span>
-                                            {% elif movement.movement_type == 'saida' %}
-                                            <span class="badge bg-danger">Saída</span>
-                                            {% else %}
-                                            <span class="badge bg-info">Ajuste</span>
-                                            {% endif %}
+                                            <span class="badge {% if movement.movement.movement_type == 'entrada' %}bg-success{% else %}bg-danger{% endif %}">
+                                                {{ movement.movement.get_movement_type_display }}
+                                            </span>
                                         </td>
                                         <td>{{ movement.quantity }}</td>
                                     </tr>
                                     {% empty %}
                                     <tr>
-                                        <td colspan="3" class="text-center">Nenhum movimento registrado.</td>
+                                        <td colspan="3" class="text-center">Nenhum movimento registrado</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>

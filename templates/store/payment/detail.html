@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Detalhes do Pagamento - Sistema de Controle de Vendas{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Detalhes do Pagamento</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'payment_list' %}" class="btn btn-sm btn-secondary me-2">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+        <a href="{% url 'payment_update' payment.pk %}" class="btn btn-sm btn-primary">
+            <i class="fas fa-edit me-1"></i> Editar
+        </a>
+    </div>
+</div>
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Cliente</dt>
+            <dd class="col-sm-9">{{ payment.client }}</dd>
+            <dt class="col-sm-3">Venda</dt>
+            <dd class="col-sm-9">{% if payment.sale %}{{ payment.sale.code }}{% else %}-{% endif %}</dd>
+            <dt class="col-sm-3">Valor</dt>
+            <dd class="col-sm-9">R$ {{ payment.amount|floatformat:2 }}</dd>
+            <dt class="col-sm-3">Data de Pagamento</dt>
+            <dd class="col-sm-9">{{ payment.payment_date|date:'d/m/Y H:i' }}</dd>
+            <dt class="col-sm-3">Observações</dt>
+            <dd class="col-sm-9">{{ payment.notes|default:'-' }}</dd>
+        </dl>
+    </div>
+</div>
+{% endblock %} 

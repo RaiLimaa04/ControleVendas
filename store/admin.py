@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Product, Client, Sale, SaleItem, StockMovement, Payment
+from .models import Category, Product, Client, Sale, SaleItem, StockMovement, Payment, StockMovementItem
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -38,9 +38,20 @@ class SaleItemAdmin(admin.ModelAdmin):
 
 @admin.register(StockMovement)
 class StockMovementAdmin(admin.ModelAdmin):
-    list_display = ('product', 'quantity', 'movement_type', 'reason', 'date')
-    list_filter = ('movement_type', 'date')
-    search_fields = ('product__name', 'reason')
+    list_display = ['date', 'get_movement_type_display', 'get_total_items', 'notes']
+    list_filter = ['movement_type', 'date']
+    search_fields = ['notes']
+    date_hierarchy = 'date'
+    
+    def get_total_items(self, obj):
+        return obj.get_total_items()
+    get_total_items.short_description = 'Total de Itens'
+
+@admin.register(StockMovementItem)
+class StockMovementItemAdmin(admin.ModelAdmin):
+    list_display = ['movement', 'product', 'quantity']
+    list_filter = ['movement__movement_type', 'movement__date']
+    search_fields = ['product__name', 'movement__notes']
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):

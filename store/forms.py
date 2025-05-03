@@ -1,6 +1,6 @@
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Category, Product, Client, Sale, SaleItem, StockMovement, Payment
+from .models import Category, Product, Client, Sale, SaleItem, StockMovement, Payment, StockMovementItem
 
 class CategoryForm(forms.ModelForm):
     class Meta:
@@ -31,9 +31,8 @@ class ProductForm(forms.ModelForm):
 class ClientForm(forms.ModelForm):
     class Meta:
         model = Client
-        fields = ['code', 'name', 'cpf_cnpj', 'phone', 'address', 'email', 'credit_limit']
+        fields = ['name', 'cpf_cnpj', 'phone', 'address', 'email', 'credit_limit']
         widgets = {
-            'code': forms.TextInput(attrs={'class': 'form-control'}),
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'cpf_cnpj': forms.TextInput(attrs={'class': 'form-control'}),
             'phone': forms.TextInput(attrs={'class': 'form-control'}),
@@ -59,9 +58,9 @@ class SaleItemForm(forms.ModelForm):
         model = SaleItem
         fields = ['product', 'quantity', 'unit_price']
         widgets = {
-            'product': forms.Select(attrs={'class': 'form-select'}),
-            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
-            'unit_price': forms.NumberInput(attrs={'class': 'form-control'})
+            'product': forms.Select(attrs={'class': 'form-select', 'onchange': 'updateProductInfo(this)'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'onchange': 'updateTotalPrice()'}),
+            'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'onchange': 'updateTotalPrice()'})
         }
     
     def __init__(self, *args, **kwargs):
@@ -72,6 +71,17 @@ class SaleItemForm(forms.ModelForm):
         # If instance exists, include the current product even if out of stock
         if self.instance and self.instance.pk:
             self.fields['product'].queryset = self.fields['product'].queryset | Product.objects.filter(pk=self.instance.product.pk)
+        
+        # Set initial unit_price if product is selected
+        if 'product' in self.data:
+            try:
+                product_id = int(self.data.get('product'))
+                product = Product.objects.get(pk=product_id)
+                self.fields['unit_price'].initial = product.sale_price
+            except (ValueError, TypeError, Product.DoesNotExist):
+                pass
+        elif self.instance and self.instance.pk:
+            self.fields['unit_price'].initial = self.instance.unit_price
     
     def clean(self):
         cleaned_data = super().clean()
@@ -92,25 +102,15 @@ class SaleItemForm(forms.ModelForm):
 class StockMovementForm(forms.ModelForm):
     class Meta:
         model = StockMovement
-        fields = ['product', 'quantity', 'movement_type', 'reason']
-        widgets = {
-            'product': forms.Select(attrs={'class': 'form-select'}),
-            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
-            'movement_type': forms.Select(attrs={'class': 'form-select'}),
-            'reason': forms.TextInput(attrs={'class': 'form-control'})
+        fields = ['movement_type', 'notes']
+        labels = {
+            'movement_type': 'Tipo de Movimentação',
+            'notes': 'Observações'
         }
-    
-    def clean(self):
-        cleaned_data = super().clean()
-        product = cleaned_data.get('product')
-        quantity = cleaned_data.get('quantity')
-        movement_type = cleaned_data.get('movement_type')
-        
-        if product and quantity and movement_type:
-            if movement_type == 'saida' and quantity > product.stock_quantity:
-                raise ValidationError(f'Estoque insuficiente. Disponível: {product.stock_quantity}')
-        
-        return cleaned_data
+        widgets = {
+            'movement_type': forms.Select(choices=StockMovement.MOVEMENT_TYPES),
+            'notes': forms.Textarea(attrs={'rows': 3})
+        }
 
 class PaymentForm(forms.ModelForm):
     class Meta:
@@ -153,3 +153,28 @@ class ProductSearchForm(forms.Form):
 class ClientSearchForm(forms.Form):
     name = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome do cliente'}))
     has_debt = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}))
+
+class StockMovementItemForm(forms.ModelForm):
+    class Meta:
+        model = StockMovementItem
+        fields = ['product', 'quantity']
+        labels = {
+            'product': 'Produto',
+            'quantity': 'Quantidade'
+        }
+        widgets = {
+            'product': forms.Select(attrs={'class': 'form-select'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1})
+        }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        product = cleaned_data.get('product')
+        quantity = cleaned_data.get('quantity')
+        movement = self.instance.movement if self.instance.pk else None
+        
+        if product and quantity and movement:
+            if movement.movement_type == 'saida' and quantity > product.stock_quantity:
+                raise ValidationError(f'Estoque insuficiente. Disponível: {product.stock_quantity}')
+        
+        return cleaned_data

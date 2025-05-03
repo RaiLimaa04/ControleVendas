@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}Detalhes da Movimentação - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Detalhes da Movimentação</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'stock_movement_list' %}" class="btn btn-sm btn-secondary me-2">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Informações da Movimentação</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Data</dt>
+                    <dd class="col-sm-8">{{ movement.date|date:"d/m/Y H:i" }}</dd>
+
+                    <dt class="col-sm-4">Tipo</dt>
+                    <dd class="col-sm-8">
+                        {% if movement.movement_type == 'entrada' %}
+                        <span class="badge bg-success">Entrada</span>
+                        {% else %}
+                        <span class="badge bg-danger">Saída</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-4">Total de Itens</dt>
+                    <dd class="col-sm-8">{{ movement.get_total_items }}</dd>
+
+                    <dt class="col-sm-4">Observações</dt>
+                    <dd class="col-sm-8">{{ movement.notes|default:"-" }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Itens da Movimentação</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>Produto</th>
+                        <th>Quantidade</th>
+                        <th>Preço Unitário</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in movement.items.all %}
+                    <tr>
+                        <td>{{ item.product.name }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>R$ {{ item.unit_price|floatformat:2 }}</td>
+                        <td>R$ {{ item.total_price|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center">Nenhum item encontrado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th colspan="3" class="text-end">Total:</th>
+                        <th>R$ {{ movement.get_total_value|floatformat:2 }}</th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -47,11 +47,18 @@ urlpatterns = [
     # Stock
     path('stock/', views.stock_movement_list, name='stock_movement_list'),
     path('stock/new/', views.stock_movement_create, name='stock_movement_create'),
+    path('stock-movements/', views.StockMovementListView.as_view(), name='stock_movement_list'),
+    path('stock-movements/create/', views.StockMovementCreateView.as_view(), name='stock_movement_create'),
+    path('stock-movements/<int:pk>/add-items/', views.StockMovementAddItemsView.as_view(), name='stock_movement_add_items'),
+    path('stock-movements/<int:pk>/', views.StockMovementDetailView.as_view(), name='stock_movement_detail'),
+    path('stock-movements/items/<int:pk>/delete/', views.StockMovementItemDeleteView.as_view(), name='stock_movement_item_delete'),
     
     # Payments
     path('payments/', views.payment_list, name='payment_list'),
     path('payments/new/', views.payment_create, name='payment_create'),
     path('payments/<int:pk>/delete/', views.payment_delete, name='payment_delete'),
+    path('payments/<int:pk>/', views.payment_detail, name='payment_detail'),
+    path('payments/<int:pk>/edit/', views.payment_update, name='payment_update'),
     
     # Reports
     path('reports/sales/', views.report_sales, name='report_sales'),
@@ -60,6 +67,6 @@ urlpatterns = [
     path('reports/stock/', views.report_stock, name='report_stock'),
     
     # API
-    path('api/products/<int:product_id>/info/', views.api_get_product_info, name='api_get_product_info'),
     path('api/clients/<int:client_id>/sales/', views.api_get_client_sales, name='api_get_client_sales'),
+    path('api/products/<int:pk>/info/', views.product_info, name='product_info'),
 ]

@@ -20,13 +20,13 @@ class Category(models.Model):
 
 class Product(models.Model):
     """Product model"""
-    code = models.CharField(max_length=20, unique=True, verbose_name="Código", blank=True)
-    name = models.CharField(max_length=100, verbose_name="Nome")
+    code = models.CharField(max_length=20, unique=True, verbose_name="Código", blank=True, db_index=True)
+    name = models.CharField(max_length=100, verbose_name="Nome", db_index=True)
     description = models.TextField(blank=True, null=True, verbose_name="Descrição")
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products', verbose_name="Categoria")
     sale_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], verbose_name="Preço de Venda")
     cost_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], verbose_name="Preço de Custo")
-    stock_quantity = models.PositiveIntegerField(default=0, verbose_name="Quantidade em Estoque")
+    stock_quantity = models.PositiveIntegerField(default=0, verbose_name="Quantidade em Estoque", db_index=True)
     min_stock = models.PositiveIntegerField(default=5, verbose_name="Estoque Mínimo")
     supplier = models.CharField(max_length=100, blank=True, null=True, verbose_name="Fornecedor")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Data de Cadastro")
@@ -37,25 +37,29 @@ class Product(models.Model):
         verbose_name = "Produto"
         verbose_name_plural = "Produtos"
         ordering = ['name']
+        indexes = [
+            models.Index(fields=['name', 'code']),
+            models.Index(fields=['stock_quantity']),
+            models.Index(fields=['category', 'stock_quantity']),
+        ]
     
     def __str__(self):
         return f"{self.code} - {self.name}"
     
     def save(self, *args, **kwargs):
+        # Otimização: Evitar múltiplas queries ao banco
         if not self.code and self.category:
-            # Pega o último produto da categoria
+            # Usar uma única query para obter o último produto
             last_product = Product.objects.filter(
                 category=self.category
-            ).order_by('-code').first()
+            ).only('code').order_by('-code').first()
             
             if last_product and last_product.code:
-                # Extrai o número do último código
                 last_number = int(last_product.code[2:])
                 new_number = last_number + 1
             else:
                 new_number = 1
             
-            # Gera o novo código
             self.code = f"{self.category.code_prefix}{new_number:02d}"
         
         super().save(*args, **kwargs)
@@ -94,6 +98,26 @@ class Client(models.Model):
     
     def __str__(self):
         return f"{self.code} - {self.name}"
+    
+    def save(self, *args, **kwargs):
+        # Gera o código automaticamente apenas para novos clientes
+        if not self.pk:
+            # Busca o último código de cliente
+            last_client = Client.objects.order_by('-code').first()
+            if last_client and last_client.code.startswith('CLI'):
+                try:
+                    # Extrai o número do último código e incrementa
+                    last_number = int(last_client.code[3:])
+                    new_number = last_number + 1
+                except ValueError:
+                    new_number = 1
+            else:
+                new_number = 1
+            
+            # Formata o novo código com zeros à esquerda
+            self.code = f"CLI{new_number:04d}"
+        
+        super().save(*args, **kwargs)
     
     @property
     def total_debt(self):
@@ -206,38 +230,64 @@ class StockMovement(models.Model):
     MOVEMENT_TYPES = (
         ('entrada', 'Entrada'),
         ('saida', 'Saída'),
-        ('ajuste', 'Ajuste'),
     )
     
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_movements', verbose_name="Produto")
-    quantity = models.IntegerField(verbose_name="Quantidade")
-    movement_type = models.CharField(max_length=10, choices=MOVEMENT_TYPES, verbose_name="Tipo de Movimento")
-    reason = models.CharField(max_length=100, verbose_name="Motivo")
-    date = models.DateTimeField(default=timezone.now, verbose_name="Data e Hora")
-    sale = models.ForeignKey(Sale, on_delete=models.SET_NULL, null=True, blank=True, related_name='stock_movements', verbose_name="Venda Relacionada")
-    
-    class Meta:
-        verbose_name = "Movimento de Estoque"
-        verbose_name_plural = "Movimentos de Estoque"
-        ordering = ['-date']
+    date = models.DateTimeField(auto_now_add=True)
+    movement_type = models.CharField(max_length=10, choices=MOVEMENT_TYPES)
+    notes = models.TextField(blank=True, null=True)
     
     def __str__(self):
-        return f"{self.get_movement_type_display()} de {self.quantity} unidades de {self.product.name}"
+        return f"{self.get_movement_type_display()} - {self.date.strftime('%d/%m/%Y %H:%M')}"
+    
+    def get_total_items(self):
+        return self.items.count()
+    
+    def get_total_value(self):
+        """Calcula o valor total da movimentação"""
+        total = 0
+        for item in self.items.all():
+            total += item.quantity * item.product.cost_price
+        return total
+
+class StockMovementItem(models.Model):
+    movement = models.ForeignKey(StockMovement, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_movement_items')
+    quantity = models.PositiveIntegerField()
+    
+    def __str__(self):
+        return f"{self.product.name} - {self.quantity} unidades"
     
     def save(self, *args, **kwargs):
-        # If this is a new movement, update product stock
-        if not self.pk:
-            if self.movement_type == 'entrada':
-                self.product.stock_quantity += self.quantity
-            elif self.movement_type == 'saida':
-                self.product.stock_quantity -= self.quantity
-            elif self.movement_type == 'ajuste':
-                # For adjustments, quantity can be positive or negative
-                self.product.stock_quantity += self.quantity
-            
-            self.product.save()
-            
+        # Se for uma atualização, primeiro revertemos a quantidade anterior
+        if self.pk:
+            old_item = StockMovementItem.objects.get(pk=self.pk)
+            if old_item.movement.movement_type == 'entrada':
+                self.product.stock_quantity -= old_item.quantity
+            else:
+                self.product.stock_quantity += old_item.quantity
+        
+        # Agora aplicamos a nova quantidade
+        if self.movement.movement_type == 'entrada':
+            self.product.stock_quantity += self.quantity
+        else:
+            self.product.stock_quantity -= self.quantity
+        
+        # Salvamos o produto primeiro para garantir que o estoque está atualizado
+        self.product.save()
+        # Depois salvamos o item da movimentação
         super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        # Revertemos a quantidade no estoque
+        if self.movement.movement_type == 'entrada':
+            self.product.stock_quantity -= self.quantity
+        else:
+            self.product.stock_quantity += self.quantity
+        
+        # Salvamos o produto primeiro
+        self.product.save()
+        # Depois deletamos o item
+        super().delete(*args, **kwargs)
 
 class Payment(models.Model):
     """Payment model for tracking client payments"""

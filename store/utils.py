@@ -16,28 +16,27 @@ class DeleteObjectMixin:
     """Mixin para lidar com exclusão de objetos"""
     success_message = None
     error_message = None
-    redirect_url = None
+    success_url = None
 
-    def delete_object(self, request, *args, **kwargs):
+    def delete(self, request, *args, **kwargs):
         try:
+            self.object = self.get_object()
             self.object.delete()
             messages.success(request, self.success_message)
         except Exception as e:
             messages.error(request, f'{self.error_message}: {str(e)}')
-        return redirect(self.redirect_url)
+        return redirect(self.success_url)
 
 class CreateObjectMixin:
     """Mixin para criar objetos com mensagens padrão"""
     success_message = None
-    redirect_url = None
+    success_url = None
 
-    def create_object(self, request, *args, **kwargs):
-        form = self.get_form()
-        if form.is_valid():
-            form.save()
-            messages.success(request, self.success_message)
-            return redirect(self.redirect_url)
-        return self.form_invalid(form)
+    def form_valid(self, form):
+        self.object = form.save()
+        if self.success_message:
+            messages.success(self.request, self.success_message)
+        return redirect(self.success_url)
 
 class UpdateObjectMixin:
     """Mixin para atualizar objetos com mensagens padrão"""

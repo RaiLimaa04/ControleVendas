@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+
+{% block title %}Adicionar Itens - Sistema de Controle de Vendas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Adicionar Itens à Movimentação</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{% url 'stock_movement_detail' movement.id %}" class="btn btn-sm btn-secondary me-2">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Informações da Movimentação</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Data</dt>
+                    <dd class="col-sm-8">{{ movement.date|date:"d/m/Y H:i" }}</dd>
+
+                    <dt class="col-sm-4">Tipo</dt>
+                    <dd class="col-sm-8">
+                        {% if movement.movement_type == 'entrada' %}
+                        <span class="badge bg-success">Entrada</span>
+                        {% else %}
+                        <span class="badge bg-danger">Saída</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-4">Observações</dt>
+                    <dd class="col-sm-8">{{ movement.notes|default:"-" }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Adicionar Itens</h5>
+    </div>
+    <div class="card-body">
+        <form method="post" class="needs-validation" novalidate>
+            {% csrf_token %}
+            {{ formset.management_form }}
+            
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="items-table">
+                    <thead>
+                        <tr>
+                            <th>Produto</th>
+                            <th>Quantidade</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for form in formset %}
+                        <tr class="item-row">
+                            <td>{{ form.product }}</td>
+                            <td>{{ form.quantity }}</td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-danger remove-row">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-3">
+                <button type="button" class="btn btn-success" id="add-row">
+                    <i class="fas fa-plus me-1"></i> Adicionar Item
+                </button>
+                <button type="submit" class="btn btn-primary float-end">
+                    <i class="fas fa-save me-1"></i> Salvar Itens
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const addRowButton = document.getElementById('add-row');
+    const itemsTable = document.getElementById('items-table');
+    const tbody = itemsTable.querySelector('tbody');
+    const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+    let formCount = parseInt(totalForms.value);
+
+    addRowButton.addEventListener('click', function() {
+        const newRow = document.createElement('tr');
+        newRow.className = 'item-row';
+        newRow.innerHTML = `
+            <td>
+                <select name="form-${formCount}-product" class="form-select" required>
+                    <option value="">Selecione um produto</option>
+                    {% for product in products %}
+                    <option value="{{ product.id }}">{{ product.name }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td>
+                <input type="number" name="form-${formCount}-quantity" class="form-control" min="1" required>
+            </td>
+            <td>
+                <button type="button" class="btn btn-sm btn-danger remove-row">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(newRow);
+        formCount++;
+        totalForms.value = formCount;
+    });
+
+    // Delegação de eventos para remover linhas, inclusive as adicionadas dinamicamente
+    tbody.addEventListener('click', function(event) {
+        if (event.target.closest('.remove-row')) {
+            event.target.closest('tr').remove();
+            formCount--;
+            totalForms.value = formCount;
+        }
+    });
+});
+</script>
+{% endblock %}
+{% endblock %} 
