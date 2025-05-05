@@ -27,8 +27,11 @@
                             <input type="password" name="password" id="id_password" class="form-control" required>
                         </div>
                     </div>
-                    <div class="d-grid">
+                    <div class="d-grid mb-3">
                         <button type="submit" class="btn btn-primary btn-lg">Entrar</button>
+                    </div>
+                    <div class="text-center">
+                        <p class="mb-0">Não tem uma conta? <a href="{% url 'register' %}" class="text-primary">Cadastre-se</a></p>
                     </div>
                 </form>
             </div>

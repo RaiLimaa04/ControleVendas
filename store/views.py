@@ -16,10 +16,11 @@ from django.db.models import Prefetch
 from django.views.decorators.cache import cache_page
 from django.utils.decorators import method_decorator
 from django import forms
+from django.contrib.auth import login
 
 from .models import Category, Product, Client, Sale, SaleItem, StockMovement, Payment, StockMovementItem
 from .forms import (CategoryForm, ProductForm, ClientForm, SaleForm, SaleItemForm, 
-                   StockMovementForm, PaymentForm, SaleSearchForm, ProductSearchForm, ClientSearchForm, StockMovementItemForm)
+                   StockMovementForm, PaymentForm, SaleSearchForm, ProductSearchForm, ClientSearchForm, StockMovementItemForm, UserRegistrationForm)
 from .utils import SuccessMessageMixin, DeleteObjectMixin, CreateObjectMixin, UpdateObjectMixin
 
 @login_required
@@ -925,3 +926,16 @@ def product_info(request, pk):
         'stock_quantity': product.stock_quantity,
         'min_stock': product.min_stock
     })
+
+def register(request):
+    if request.method == 'POST':
+        form = UserRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, 'Cadastro realizado com sucesso!')
+            return redirect('dashboard')
+    else:
+        form = UserRegistrationForm()
+    
+    return render(request, 'store/auth/register.html', {'form': form})

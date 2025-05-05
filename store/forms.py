@@ -1,6 +1,8 @@
 from django import forms
 from django.core.exceptions import ValidationError
 from .models import Category, Product, Client, Sale, SaleItem, StockMovement, Payment, StockMovementItem
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
 
 class CategoryForm(forms.ModelForm):
     class Meta:
@@ -178,3 +180,16 @@ class StockMovementItemForm(forms.ModelForm):
                 raise ValidationError(f'Estoque insuficiente. Disponível: {product.stock_quantity}')
         
         return cleaned_data
+
+class UserRegistrationForm(UserCreationForm):
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name', 'email', 'password1', 'password2']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'password1': forms.PasswordInput(attrs={'class': 'form-control'}),
+            'password2': forms.PasswordInput(attrs={'class': 'form-control'}),
+        }
