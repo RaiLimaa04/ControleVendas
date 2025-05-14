@@ -46,14 +46,19 @@ class ClientForm(forms.ModelForm):
 class SaleForm(forms.ModelForm):
     class Meta:
         model = Sale
-        fields = ['code', 'client', 'payment_method', 'status', 'notes']
+        fields = ['client', 'payment_method', 'status', 'notes']
         widgets = {
-            'code': forms.TextInput(attrs={'class': 'form-control'}),
             'client': forms.Select(attrs={'class': 'form-select'}),
             'payment_method': forms.Select(attrs={'class': 'form-select'}),
             'status': forms.Select(attrs={'class': 'form-select'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3})
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Adiciona a opção "Consumidor Final" no início da lista de clientes
+        self.fields['client'].empty_label = "Consumidor Final"
+        self.fields['client'].required = False
 
 class SaleItemForm(forms.ModelForm):
     class Meta:

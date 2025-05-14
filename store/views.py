@@ -427,29 +427,37 @@ def sale_create(request):
         if form.is_valid():
             sale = form.save(commit=False)
             
-            # Se a forma de pagamento for 'prazo', define o status como 'pendente'
+            # Se não houver cliente selecionado, define como None
+            if not form.cleaned_data.get('client'):
+                sale.client = None
+            
+            # Se for venda a prazo, verifica se tem cliente
+            if sale.payment_method == 'prazo' and not sale.client:
+                messages.error(request, 'Vendas a prazo precisam ter um cliente associado.')
+                return render(request, 'store/sale/form.html', {'form': form, 'title': 'Nova Venda'})
+            
+            # Se for venda a prazo, define status como pendente
             if sale.payment_method == 'prazo':
                 sale.status = 'pendente'
+            
+            # Gera o código da venda
+            last_sale = Sale.objects.order_by('-code').first()
+            if last_sale and last_sale.code:
+                try:
+                    last_number = int(last_sale.code.split('-')[1])
+                    new_number = last_number + 1
+                except (IndexError, ValueError):
+                    new_number = 1
             else:
-                sale.status = 'pago'  # ou outro valor conforme sua lógica
+                new_number = 1
+            
+            sale.code = f'VDA-{new_number:06d}'
             
             sale.save()
-            messages.success(request, 'Venda criada com sucesso! Adicione os produtos.')
+            messages.success(request, 'Venda criada com sucesso!')
             return redirect('sale_item_create', sale_id=sale.id)
     else:
-        # Gera o próximo código de venda
-        last_sale = Sale.objects.order_by('-id').first()
-        next_code = 'V0001'
-        if last_sale:
-            last_code = last_sale.code
-            if last_code.startswith('V'):
-                try:
-                    num = int(last_code[1:]) + 1
-                    next_code = f'V{num:04d}'
-                except ValueError:
-                    pass
-        
-        form = SaleForm(initial={'code': next_code})
+        form = SaleForm()
     
     return render(request, 'store/sale/form.html', {'form': form, 'title': 'Nova Venda'})
 

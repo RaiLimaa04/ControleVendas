@@ -21,16 +21,13 @@
                     {% csrf_token %}
                     <div class="row">
                         <div class="col-md-6">
-                            {{ form.code|as_crispy_field }}
-                        </div>
-                        <div class="col-md-6">
                             {{ form.client|as_crispy_field }}
                         </div>
-                    </div>
-                    <div class="row">
                         <div class="col-md-6">
                             {{ form.payment_method|as_crispy_field }}
                         </div>
+                    </div>
+                    <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="id_status" class="form-label">Status</label>
@@ -72,7 +69,8 @@
             </div>
             <div class="card-body">
                 <ul>
-                    <li>Para vendas a prazo, selecione a forma de pagamento "A Prazo".</li>
+                    <li>Para vendas rápidas, selecione "Consumidor Final" no campo cliente.</li>
+                    <li>Para vendas a prazo, selecione a forma de pagamento "A Prazo" e um cliente.</li>
                     <li>O status será automaticamente definido como "Pendente" para vendas a prazo.</li>
                     <li>Após criar a venda, você poderá adicionar os produtos.</li>
                 </ul>
@@ -122,7 +120,7 @@
                     }
                 });
             } else {
-                $('#client-info').html('<p class="text-center text-muted">Selecione um cliente para ver suas informações.</p>');
+                $('#client-info').html('<p class="text-center text-muted">Venda para Consumidor Final.</p>');
             }
         });
         
@@ -130,10 +128,19 @@
         $('#id_payment_method').change(function() {
             var paymentMethod = $(this).val();
             var $statusField = $('#id_status');
+            var $clientField = $('#id_client');
             
             if (paymentMethod === 'prazo') {
                 $statusField.val('pendente');
                 $statusField.find('option').not('[value="pendente"]').prop('disabled', true);
+                
+                // Se não houver cliente selecionado, mostra alerta
+                if (!$clientField.val()) {
+                    alert('Para vendas a prazo, é necessário selecionar um cliente.');
+                    $(this).val('dinheiro'); // Volta para dinheiro
+                    $statusField.find('option').prop('disabled', false);
+                    $statusField.val('pago');
+                }
             } else {
                 $statusField.find('option').prop('disabled', false);
                 if ($statusField.val() === 'pendente') {
